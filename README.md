@@ -79,3 +79,27 @@ El componente principal exportado es:
 
 ```jsx
 export default function GeneradorContrasenasPro()
+
+## Instrucciones para Debian (Linux)
+Para ejecutar o compilar en Debian, sigue estos pasos:
+
+1. Dale permisos de ejecución al script de configuración:
+   ```bash
+   chmod +x setup_linux.sh
+   ```
+2. Ejecuta el script para instalar dependencias del sistema y de Python:
+   ```bash
+   ./setup_linux.sh
+   ```
+3. Ejecuta la aplicación:
+   ```bash
+   source venv/bin/activate
+   python3 main.py
+   ```
+4. Si quieres generar un binario nativo de Linux:
+   ```bash
+   python3 build_exe.py
+   ```
+
+## Desarrollo
+Si realizas cambios en el código de `www/index.html`, simplemente vuelve a ejecutar `build_exe.py` para actualizar el ejecutable.
