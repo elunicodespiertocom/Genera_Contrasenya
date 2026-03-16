@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Contraseñas Pro</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    borderRadius: {
+                        '3xl': '1.5rem',
+                        '2xl': '1rem',
+                    },
+                    colors: {
+                        slate: {
+                            950: '#020617',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Framer Motion (Global build usually exports to window.Motion) -->
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            background-color: #020617;
+            color: white;
+        }
+
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            z-index: 1000;
+        }
+        
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 transition-colors duration-300">
+    <div id="loading-screen">
+        Cargando Generador de Contraseñas...
+    </div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        console.log("Iniciando script de Babel...");
+        document.getElementById('loading-screen').innerText = "Iniciando React...";
+        
+        window.onerror = function(msg, url, line) {
+            console.error("Error global detectado: " + msg + " en " + url + ":" + line);
+            return false;
+        };
+
+        const { useState, useEffect, useMemo, useRef } = React;
+        
+        // Framer Motion puede exportar como 'Motion' o 'FramerMotion' en builds globales
+        const MotionLib = window.Motion || window.FramerMotion;
+        if (!MotionLib) {
+            console.error("Framer Motion no se cargó correctamente.");
+        }
+        const { motion, AnimatePresence } = MotionLib || { motion: ({children}) => <div>{children}</div>, AnimatePresence: ({children}) => <>{children}</> };
+
+        // --- UI Components (Simplified Shadcn equivalents) ---
+
+        const Card = ({ children, className = "" }) => (
+            <div className={`rounded-[28px] border border-slate-200/70 bg-white/80 shadow-2xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 ${className}`}>
+                {children}
+            </div>
+        );
+
+        const CardHeader = ({ children, className = "" }) => (
+            <div className={`p-6 pb-2 ${className}`}>{children}</div>
+        );
+
+        const CardTitle = ({ children, className = "" }) => (
+            <h3 className={`text-2xl font-bold tracking-tight text-slate-900 dark:text-white ${className}`}>{children}</h3>
+        );
+
+        const CardDescription = ({ children, className = "" }) => (
+            <p className={`text-sm text-slate-500 dark:text-slate-400 ${className}`}>{children}</p>
+        );
+
+        const CardContent = ({ children, className = "" }) => (
+            <div className={`p-6 pt-0 ${className}`}>{children}</div>
+        );
+
+        const Button = ({ children, onClick, variant = "default", className = "", disabled = false }) => {
+            const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2";
+            const variants = {
+                default: "bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-slate-900 dark:hover:bg-slate-50/90",
+                outline: "border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-800 dark:hover:text-slate-50",
+                destructive: "bg-red-500 text-slate-50 hover:bg-red-500/90 dark:bg-red-900 dark:text-slate-50 dark:hover:bg-red-900/90",
+                secondary: "bg-slate-100 text-slate-900 hover:bg-slate-100/80 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-800/80",
+                ghost: "hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-50",
+            };
+            
+            return (
+                <button onClick={onClick} disabled={disabled} className={`${baseStyles} ${variants[variant]} ${className}`}>
+                    {children}
+                </button>
+            );
+        };
+
+        const Input = ({ value, onChange, placeholder, readOnly, className = "", id }) => (
+            <input
+                id={id}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                readOnly={readOnly}
+                className={`flex h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:placeholder:text-slate-400 ${className}`}
+            />
+        );
+
+        const Label = ({ children, htmlFor, className = "" }) => (
+            <label htmlFor={htmlFor} className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}>
+                {children}
+            </label>
+        );
+
+        const Switch = ({ id, checked, onCheckedChange }) => (
+            <button
+                id={id}
+                role="switch"
+                aria-checked={checked}
+                onClick={() => onCheckedChange(!checked)}
+                className={`peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${checked ? 'bg-slate-900 dark:bg-slate-50' : 'bg-slate-200 dark:bg-slate-800'}`}
+            >
+                <span className={`pointer-events-none block h-5 w-5 rounded-full shadow-lg ring-0 transition-transform ${checked ? 'translate-x-5 bg-white dark:bg-slate-900' : 'translate-x-0 bg-white dark:bg-slate-400'}`} />
+            </button>
+        );
+
+        const Badge = ({ children, variant = "default", className = "" }) => {
+            const variants = {
+                default: "border-transparent bg-slate-900 text-slate-50 dark:bg-slate-50 dark:text-slate-900",
+                secondary: "border-transparent bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50",
+                outline: "text-slate-950 dark:text-slate-50",
+            };
+            return (
+                <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 ${variants[variant]} ${className}`}>
+                    {children}
+                </div>
+            );
+        };
+
+        const Tabs = ({ children, defaultValue, className = "" }) => {
+            const [activeTab, setActiveTab] = useState(defaultValue);
+            return (
+                <div className={className}>
+                    {React.Children.map(children, child => {
+                        if (React.isValidElement(child)) {
+                            return React.cloneElement(child, { activeTab, setActiveTab });
+                        }
+                        return child;
+                    })}
+                </div>
+            );
+        };
+
+        const TabsList = ({ children, className = "", activeTab, setActiveTab }) => (
+            <div className={`inline-flex h-10 items-center justify-center rounded-2xl bg-slate-100 p-1 text-slate-500 dark:bg-slate-800 dark:text-slate-400 ${className}`}>
+                {React.Children.map(children, child => {
+                    if (React.isValidElement(child)) {
+                        return React.cloneElement(child, { activeTab, setActiveTab });
+                    }
+                    return child;
+                })}
+            </div>
+        );
+
+        const TabsTrigger = ({ value, children, className = "", activeTab, setActiveTab }) => {
+            const isActive = activeTab === value;
+            return (
+                <button
+                    onClick={() => setActiveTab(value)}
+                    className={`inline-flex items-center justify-center whitespace-nowrap rounded-2xl px-3 py-1.5 text-sm font-medium ring-offset-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${isActive ? 'bg-white text-slate-950 shadow-sm dark:bg-slate-950 dark:text-slate-50' : ''} ${className}`}
+                >
+                    {children}
+                </button>
+            );
+        };
+
+        const TabsContent = ({ value, children, className = "", activeTab }) => {
+            if (activeTab !== value) return null;
+            return <div className={`mt-2 ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 dark:ring-offset-slate-950 ${className}`}>{children}</div>;
+        };
+
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [name]);
+            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        };
+
+        // --- Logic (From provided code) ---
+
+        const SPECIALS = "!@#$%^&*()-_=+[]{};:,.?/|~";
+        const NUMBERS = "0123456789";
+        const UPPERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const LOWERS = "abcdefghijklmnopqrstuvwxyz";
+
+        function secureRandomInt(max) {
+            const array = new Uint32Array(1);
+            crypto.getRandomValues(array);
+            return array[0] % max;
+        }
+
+        function pickRandom(chars) {
+            return chars[secureRandomInt(chars.length)];
+        }
+
+        function shuffle(text) {
+            const arr = [...text];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = secureRandomInt(i + 1);
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr.join("");
+        }
+
+        function generateRandomPassword({ length = 25, useSpecial = true, useNumbers = true, useUpper = true }) {
+            let pool = LOWERS;
+            const required = [pickRandom(LOWERS)];
+
+            if (useSpecial) {
+                pool += SPECIALS;
+                required.push(pickRandom(SPECIALS));
+            }
+            if (useNumbers) {
+                pool += NUMBERS;
+                required.push(pickRandom(NUMBERS));
+            }
+            if (useUpper) {
+                pool += UPPERS;
+                required.push(pickRandom(UPPERS));
+            }
+
+            while (required.length < length) {
+                required.push(pickRandom(pool));
+            }
+
+            return shuffle(required.slice(0, length).join(""));
+        }
+
+        function normalizeText(text) {
+            return text
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[^a-zA-Z0-9\s]/g, " ")
+                .trim();
+        }
+
+        function generatePasswordFromPhrase(phrase) {
+            const cleaned = normalizeText(phrase);
+            if (!cleaned) return "";
+
+            const words = cleaned.split(/\s+/).filter(Boolean);
+            const initials = words.map((w) => w[0]?.toUpperCase() || "").join("");
+            const core = words
+                .map((w, index) => {
+                    const first = w[0]?.toUpperCase() || "";
+                    const tail = w.slice(1, Math.min(4, w.length)).toLowerCase();
+                    return index % 2 === 0 ? `${first}${tail}` : `${first}${tail.split("").reverse().join("")}`;
+                })
+                .join("");
+
+            const numberSeed = String(
+                words.reduce((acc, w, idx) => acc + w.length * (idx + 3), 0) + phrase.length * 7
+            ).slice(0, 4);
+
+            const specialSeed = ["#", "@", "!", "&", "$", "%", "*", "+"][words.length % 8];
+            const combined = `${initials}${specialSeed}${core}${numberSeed}`;
+            return shuffle(combined).slice(0, Math.max(12, Math.min(25, combined.length)));
+        }
+
+        function passwordStrength(password) {
+            let score = 0;
+            if (password.length >= 12) score++;
+            if (password.length >= 20) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/[a-z]/.test(password)) score++;
+            if (/\d/.test(password)) score++;
+            if (/[^A-Za-z0-9]/.test(password)) score++;
+
+            if (score <= 2) return { label: "Baja", tone: "bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30" };
+            if (score <= 4) return { label: "Media", tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" };
+            return { label: "Alta", tone: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" };
+        }
+
+        // --- Main App Component ---
+
+        function GeneradorContrasenasPro() {
+            const [theme, setTheme] = useState("dark");
+            const [useSpecial, setUseSpecial] = useState(true);
+            const [useNumbers, setUseNumbers] = useState(true);
+            const [useUpper, setUseUpper] = useState(true);
+            const [randomPassword, setRandomPassword] = useState("");
+            const [phrase, setPhrase] = useState("");
+            const [phrasePassword, setPhrasePassword] = useState("");
+            const [toast, setToast] = useState("");
+            const [closed, setClosed] = useState(false);
+
+            useEffect(() => {
+                const savedTheme = localStorage.getItem("pwd-theme");
+                if (savedTheme === "light" || savedTheme === "dark") setTheme(savedTheme);
+                
+                // Ocultar pantalla de carga
+                const loader = document.getElementById('loading-screen');
+                if (loader) loader.style.display = 'none';
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem("pwd-theme", theme);
+                document.documentElement.classList.toggle("dark", theme === "dark");
+            }, [theme]);
+
+            useEffect(() => {
+                setRandomPassword(
+                    generateRandomPassword({
+                        length: 25,
+                        useSpecial,
+                        useNumbers,
+                        useUpper,
+                    })
+                );
+            }, [useSpecial, useNumbers, useUpper]);
+
+            useEffect(() => {
+                if (!toast) return;
+                const id = setTimeout(() => setToast(""), 2200);
+                return () => clearTimeout(id);
+            }, [toast]);
+
+            const randomStrength = useMemo(() => passwordStrength(randomPassword), [randomPassword]);
+            const phraseStrength = useMemo(() => passwordStrength(phrasePassword), [phrasePassword]);
+
+            const handleCopy = async (value) => {
+                if (!value) return;
+                try {
+                    await navigator.clipboard.writeText(value);
+                    setToast("Contraseña copiada al portapapeles");
+                } catch {
+                    setToast("No se pudo copiar al portapapeles");
+                }
+            };
+
+            const handleSendMail = (value, mode) => {
+                if (!value) return;
+                const subject = encodeURIComponent(`Contraseña generada - ${mode}`);
+                const body = encodeURIComponent(`Hola,\n\nTe comparto la contraseña generada:\n\n${value}\n\nEnviado desde Generador de Contraseñas Pro.`);
+                window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            };
+
+            const handleGenerateFromPhrase = () => {
+                const generated = generatePasswordFromPhrase(phrase);
+                setPhrasePassword(generated);
+                setToast(generated ? "Contraseña creada desde la frase" : "Introduce una frase válida");
+            };
+
+            const closeTimeoutRef = useRef(null);
+
+            const handleFinalize = () => {
+                setClosed(true);
+                setToast("La aplicación se cerrará por completo en 10 segundos si no hay actividad");
+                
+                // Iniciar temporizador de 10 segundos para cerrar la aplicación
+                closeTimeoutRef.current = setTimeout(() => {
+                    if (window.pywebview && window.pywebview.api) {
+                        window.pywebview.api.close_app();
+                    } else {
+                        // Si es versión web pura, solo podemos informar o intentar cerrar pestaña
+                        window.close();
+                    }
+                }, 10000);
+            };
+
+            const handleReopen = () => {
+                setClosed(false);
+                // Si el usuario reabre, cancelamos el cierre automático
+                if (closeTimeoutRef.current) {
+                    clearTimeout(closeTimeoutRef.current);
+                    closeTimeoutRef.current = null;
+                    setToast("Cierre automático cancelado");
+                }
+            };
+
+            if (closed) {
+                return (
+                    <div className={`min-h-screen ${theme === "dark" ? "dark bg-slate-950" : "bg-slate-100"} flex items-center justify-center p-6`}>
+                        <Card className="w-full max-w-xl border-0 shadow-2xl rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur">
+                            <CardContent className="p-10 text-center space-y-5">
+                                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                                    <Icon name="power" size={32} />
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Aplicación finalizada</h2>
+                                    <p className="text-slate-600 dark:text-slate-300">La sesión del generador se ha cerrado correctamente.</p>
+                                </div>
+                                <div className="flex items-center justify-center gap-3">
+                                    <Button onClick={handleReopen} className="rounded-2xl px-6">Reabrir</Button>
+                                    <Button variant="outline" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="rounded-2xl px-6">
+                                        <Icon name={theme === "dark" ? "sun" : "moon"} size={16} className="mr-2" />
+                                        Cambiar tema
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white transition-colors duration-300">
+                    <div className="mx-auto max-w-6xl px-6 py-10">
+                    {/* Animación graciosa superior */}
+                    <div className="flex justify-center mb-4">
+                        <motion.div
+                            animate={{ 
+                                y: [0, -15, 0],
+                                rotate: [0, 10, -10, 0]
+                            }}
+                            transition={{ 
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "easeInOut"
+                            }}
+                            className="text-slate-900 dark:text-white"
+                        >
+                            <Icon name="lock" size={48} className="drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" />
+                        </motion.div>
+                    </div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.45 }}
+                        className="mb-8 flex flex-col gap-5 rounded-[28px] border border-slate-200/70 bg-white/70 p-6 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-900/70 md:flex-row md:items-center md:justify-between"
+                    >
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-900">
+                                    <Icon name="shield-check" size={24} />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold tracking-tight">Generador de Contraseñas Pro</h1>
+                                    <p className="text-sm text-slate-600 dark:text-slate-300">Diseño moderno, seguro y listo para compartir.</p>
+                                </div>
+                            </div>
+                            
+                            <div className="pl-14 border-l-2 border-slate-200 dark:border-slate-800 py-1">
+                                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                    Autor: <span className="text-blue-500 dark:text-blue-400">Oliver Benitez</span>
+                                </p>
+                                <p className="text-xs italic text-slate-500 dark:text-slate-400 mt-1 max-w-md">
+                                    “No temo a los ordenadores; lo que temo es quedarme sin ellos”
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="rounded-2xl"
+                                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                                >
+                                    <Icon name={theme === "dark" ? "sun" : "moon"} size={16} className="mr-2" />
+                                    Tema {theme === "dark" ? "claro" : "oscuro"}
+                                </Button>
+                                <Button variant="destructive" className="rounded-2xl" onClick={handleFinalize}>
+                                    <Icon name="power" size={16} className="mr-2" />
+                                    Finalizar aplicación
+                                </Button>
+                            </div>
+                        </motion.div>
+
+                        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                            <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+                                <Card className="rounded-[28px] border-0 shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="flex items-center gap-2 text-2xl">
+                                            <Icon name="key-round" size={24} />
+                                            Gestión de contraseñas
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Genera claves aleatorias de 25 caracteres o crea una contraseña basada en una frase personal.
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Tabs defaultValue="aleatoria" className="w-full">
+                                            <TabsList className="grid w-full grid-cols-2 rounded-2xl h-12">
+                                                <TabsTrigger value="aleatoria" className="rounded-2xl">Contraseña aleatoria</TabsTrigger>
+                                                <TabsTrigger value="frase" className="rounded-2xl">Desde una frase</TabsTrigger>
+                                            </TabsList>
+
+                                            <TabsContent value="aleatoria" className="mt-6 space-y-6">
+                                                <div className="grid gap-4 md:grid-cols-3">
+                                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                                                        <div className="flex items-center justify-between">
+                                                            <Label htmlFor="specials" className="text-sm font-medium">Caracteres especiales</Label>
+                                                            <Switch id="specials" checked={useSpecial} onCheckedChange={setUseSpecial} />
+                                                        </div>
+                                                    </div>
+                                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                                                        <div className="flex items-center justify-between">
+                                                            <Label htmlFor="numbers" className="text-sm font-medium">Números</Label>
+                                                            <Switch id="numbers" checked={useNumbers} onCheckedChange={setUseNumbers} />
+                                                        </div>
+                                                    </div>
+                                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                                                        <div className="flex items-center justify-between">
+                                                            <Label htmlFor="upper" className="text-sm font-medium">Mayúsculas</Label>
+                                                            <Switch id="upper" checked={useUpper} onCheckedChange={setUseUpper} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <Label>Contraseña generada (25 caracteres)</Label>
+                                                    <div className="flex flex-col gap-3 md:flex-row">
+                                                        <Input value={randomPassword} readOnly className="h-14 rounded-2xl text-base font-mono tracking-wide" />
+                                                        <Button className="h-14 rounded-2xl px-5" onClick={() => setRandomPassword(generateRandomPassword({ length: 25, useSpecial, useNumbers, useUpper }))}>
+                                                            <Icon name="refresh-cw" size={16} className="mr-2" />
+                                                            Regenerar
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <Badge variant="outline" className={`rounded-xl px-3 py-1 border ${randomStrength.tone}`}>
+                                                        Seguridad: {randomStrength.label}
+                                                    </Badge>
+                                                    <Badge variant="secondary" className="rounded-xl px-3 py-1">Longitud fija: 25</Badge>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-3">
+                                                    <Button className="rounded-2xl" onClick={() => handleCopy(randomPassword)}>
+                                                        <Icon name="copy" size={16} className="mr-2" />
+                                                        Copiar al portapapeles
+                                                    </Button>
+                                                    <Button variant="outline" className="rounded-2xl" onClick={() => handleSendMail(randomPassword, "aleatoria")}>
+                                                        <Icon name="mail" size={16} className="mr-2" />
+                                                        Enviar por mail
+                                                    </Button>
+                                                </div>
+                                            </TabsContent>
+
+                                            <TabsContent value="frase" className="mt-6 space-y-6">
+                                                <div className="space-y-3">
+                                                    <Label htmlFor="phrase">Introduce una frase</Label>
+                                                    <Input
+                                                        id="phrase"
+                                                        placeholder="Ejemplo: Mi perro nació en Madrid en 2018"
+                                                        value={phrase}
+                                                        onChange={(e) => setPhrase(e.target.value)}
+                                                        className="h-14 rounded-2xl text-base"
+                                                    />
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                                                        La aplicación transformará la frase en una contraseña más difícil de adivinar.
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-3">
+                                                    <Button className="rounded-2xl" onClick={handleGenerateFromPhrase}>
+                                                        <Icon name="sparkles" size={16} className="mr-2" />
+                                                        Generar desde frase
+                                                    </Button>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <Label>Contraseña creada</Label>
+                                                    <Input value={phrasePassword} readOnly className="h-14 rounded-2xl text-base font-mono tracking-wide" />
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <Badge variant="outline" className={`rounded-xl px-3 py-1 border ${phraseStrength.tone}`}>
+                                                        Seguridad: {phrasePassword ? phraseStrength.label : "Pendiente"}
+                                                    </Badge>
+                                                    <Badge variant="secondary" className="rounded-xl px-3 py-1">Basada en frase personal</Badge>
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-3">
+                                                    <Button className="rounded-2xl" onClick={() => handleCopy(phrasePassword)} disabled={!phrasePassword}>
+                                                        <Icon name="copy" size={16} className="mr-2" />
+                                                        Copiar al portapapeles
+                                                    </Button>
+                                                    <Button variant="outline" className="rounded-2xl" onClick={() => handleSendMail(phrasePassword, "desde frase")} disabled={!phrasePassword}>
+                                                        <Icon name="mail" size={16} className="mr-2" />
+                                                        Enviar por mail
+                                                    </Button>
+                                                </div>
+                                            </TabsContent>
+                                        </Tabs>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+
+                            <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-6">
+                                <Card className="rounded-[28px] border-0 shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+                                    <CardHeader>
+                                        <CardTitle>Resumen de funciones</CardTitle>
+                                        <CardDescription>Incluye todo lo solicitado para un uso rápido y profesional.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4 text-sm text-slate-600 dark:text-slate-300">
+                                        <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                                            <p className="font-semibold text-slate-900 dark:text-white">Pestaña 1</p>
+                                            <p>Generación automática de contraseñas de 25 caracteres con opciones de mayúsculas, números y símbolos.</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                                            <p className="font-semibold text-slate-900 dark:text-white">Pestaña 2</p>
+                                            <p>Conversión de una frase en una contraseña compacta y más segura.</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                                            <p className="font-semibold text-slate-900 dark:text-white">Acciones rápidas</p>
+                                            <p>Copiar al portapapeles, abrir el cliente de correo para enviar la clave y finalizar la aplicación.</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="rounded-[28px] border-0 shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur">
+                                    <CardHeader>
+                                        <CardTitle>Consejos de seguridad</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                                        <p>Evita reutilizar la misma contraseña en varios servicios.</p>
+                                        <p>Usa el envío por correo con precaución si la contraseña es sensible.</p>
+                                        <p>Guarda tus credenciales en un gestor de contraseñas siempre que sea posible.</p>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        </div>
+                    </div>
+
+                    <AnimatePresence>
+                        {toast && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 20 }}
+                                className="fixed bottom-5 right-5 z-50"
+                            >
+                                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                                    {toast}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<GeneradorContrasenasPro />);
+    </script>
+</body>
+</html>
